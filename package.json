@@ -3,6 +3,23 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.x.x",
+    "express": "^4.x.x",
+    "openai": "^4.x.x"
+  }
+}{
+  "name": "streaming-llm-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
