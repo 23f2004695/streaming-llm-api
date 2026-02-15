@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streaming Test</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            max-width: 900px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        button { 
+            padding: 12px 24px; 
+            font-size: 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { 
+            background: #ccc; 
+            cursor: not-allowed;
+        }
+        #output { 
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px; 
+            border-radius: 4px;
+            min-height: 300px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        #metrics { 
+            margin-top: 15px; 
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .metric { margin: 5px 0; }
+        .loading { color: #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Streaming LLM Test</h1>
+    <button id="btn" onclick="startStream()">Generate Java File Converter</button>
+    <div id="output">Click the button to start streaming...</div>
+    <div id="metrics"></div>
+
+    <script>
+        async function startStream() {
+            const output = document.getElementById('output');
+            const metrics = document.getElementById('metrics');
+            const btn = document.getElementById('btn');
+            
+            output.textContent = '';
+            metrics.innerHTML = '<div class="loading">⏳ Streaming...</div>';
+            btn.disabled = true;
+            
+            const startTime = Date.now();
+            let firstTokenTime = null;
+            let tokenCount = 0;
+            let charCount = 0;
+
+            try {
+                const response = await fetch('http://localhost:3000/api/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: 'Generate Java code for a file converter with at least 30 lines. Include proper error handling, file I/O operations, and comments.'
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            
+                            if (data === '[DONE]') {
+                                const totalTime = Date.now() - startTime;
+                                const tokensPerSecond = (tokenCount / totalTime) * 1000;
+                                
+                                metrics.innerHTML = `
+                                    <div class="metric">✅ <strong>Streaming Complete!</strong></div>
+                                    <div class="metric">📊 Total tokens: ${tokenCount}</div>
+                                    <div class="metric">📝 Total characters: ${charCount} ${charCount >= 750 ? '✅' : '❌'}</div>
+                                    <div class="metric">⚡ First token: ${firstTokenTime}ms ${firstTokenTime < 2177 ? '✅' : '❌'}</div>
+                                    <div class="metric">⏱️  Total time: ${totalTime}ms</div>
+                                    <div class="metric">🚀 Throughput: ${tokensPerSecond.toFixed(2)} tokens/s ${tokensPerSecond > 24 ? '✅' : '❌'}</div>
+                                `;
+                                btn.disabled = false;
+                                continue;
+                            }
+
+                            try {
+                                const json = JSON.parse(data);
+                                const content = json.choices[0]?.delta?.content;
+                                
+                                if (content) {
+                                    if (firstTokenTime === null) {
+                                        firstTokenTime = Date.now() - startTime;
+                                    }
+                                    output.textContent += content;
+                                    tokenCount++;
+                                    charCount += content.length;
+                                    
+                                    // Update metrics in real-time
+                                    metrics.innerHTML = `
+                                        <div class="loading">⏳ Streaming... ${tokenCount} tokens received</div>
+                                    `;
+                                }
+                            } catch (e) {
+                                // Skip invalid JSON
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                metrics.innerHTML = `<div style="color: red;">Error occurred</div>`;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
